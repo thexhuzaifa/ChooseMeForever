@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "314094702947",
+    "project_id": "chooseme-forever",
+    "storage_bucket": "chooseme-forever.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:314094702947:android:b47f707d1928b4c3e50356",
+        "android_client_info": {
+          "package_name": "com.chooseme.forever"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "314094702947-dercqa2fm6batolcur58cegbqee0t5k0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.chooseme.forever",
+            "certificate_hash": "ea6175ba3ae7629f74bbfd5ae9af01cfac0e378f"
+          }
+        },
+        {
+          "client_id": "314094702947-40htcusbn1lo8bfc1kkh16pgb8844152.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyApH1kT9aC3AvN-imnJOXf0p_g6TUVBFak"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "314094702947-40htcusbn1lo8bfc1kkh16pgb8844152.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
