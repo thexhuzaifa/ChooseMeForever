@@ -124,19 +124,15 @@ class ChatViewModel(
         }
     }
 
-    fun onCallButtonClicked() {
+    fun onCallButtonClicked(onStartCall: (String) -> Unit, onNavigateToPremium: () -> Unit) {
         viewModelScope.launch {
             val myProfileResult = profileRepository.getUserProfile(currentUserId)
             val isPremium = myProfileResult.getOrNull()?.isPremium ?: false
 
             if (isPremium) {
-                _uiState.update {
-                    it.copy(callAlertMessage = "Calling ${_uiState.value.partnerUser?.name ?: "partner"}...")
-                }
+                onStartCall(currentPartnerId.ifBlank { "user_maria" })
             } else {
-                _uiState.update {
-                    it.copy(callAlertMessage = "Audio calling requires Go Premium! Upgrade to unlock unlimited calls.")
-                }
+                onNavigateToPremium()
             }
         }
     }

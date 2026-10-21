@@ -65,6 +65,8 @@ fun ChatScreen(
     matchId: String,
     partnerUserId: String,
     onNavigateBack: () -> Unit,
+    onStartCall: (partnerUserId: String) -> Unit = {},
+    onNavigateToPremium: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ChatViewModel = viewModel()
 ) {
@@ -159,9 +161,14 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    // Call Pill Button matching Figma Screen 5
+                    // Call Pill Button
                     Button(
-                        onClick = { viewModel.onCallButtonClicked() },
+                        onClick = {
+                            viewModel.onCallButtonClicked(
+                                onStartCall = onStartCall,
+                                onNavigateToPremium = onNavigateToPremium
+                            )
+                        },
                         shape = RoundedCornerShape(50),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFFFF0F3),

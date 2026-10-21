@@ -10,10 +10,14 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.chooseme.forever.data.model.CallSession
 import com.chooseme.forever.ui.auth.AuthScreen
+import com.chooseme.forever.ui.call.IncomingCallScreen
+import com.chooseme.forever.ui.call.OutgoingCallScreen
 import com.chooseme.forever.ui.chat.ChatListScreen
 import com.chooseme.forever.ui.chat.ChatScreen
 import com.chooseme.forever.ui.discover.DiscoverScreen
+import com.chooseme.forever.ui.premium.PremiumScreen
 import com.chooseme.forever.ui.profile.CreateProfileScreen
 import com.chooseme.forever.ui.profile.EditProfileScreen
 import com.chooseme.forever.ui.profile.ProfileScreen
@@ -28,6 +32,9 @@ object ScreenRoutes {
     const val CHAT_DETAIL = "chat_detail"
     const val PROFILE = "profile"
     const val EDIT_PROFILE = "edit_profile"
+    const val OUTGOING_CALL = "outgoing_call"
+    const val INCOMING_CALL = "incoming_call"
+    const val PREMIUM = "premium"
 }
 
 @Composable
@@ -139,11 +146,60 @@ fun AppNavigation(
                 partnerUserId = partnerUserId,
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onStartCall = { targetUserId ->
+                    navController.navigate("${ScreenRoutes.OUTGOING_CALL}/$targetUserId")
+                },
+                onNavigateToPremium = {
+                    navController.navigate(ScreenRoutes.PREMIUM)
                 }
             )
         }
 
-        // 7. Main Profile Screen (Figma Screen 6)
+        // 7. Outgoing Call Screen (Figma Screen 11)
+        composable(
+            route = "${ScreenRoutes.OUTGOING_CALL}/{partnerUserId}",
+            arguments = listOf(navArgument("partnerUserId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val partnerUserId = backStackEntry.arguments?.getString("partnerUserId") ?: "user_maria"
+            OutgoingCallScreen(
+                partnerUserId = partnerUserId,
+                onCallEnded = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // 8. Incoming Call Screen (Figma Screen 12)
+        composable(
+            route = "${ScreenRoutes.INCOMING_CALL}/{callId}",
+            arguments = listOf(navArgument("callId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val callId = backStackEntry.arguments?.getString("callId") ?: "call_123"
+            IncomingCallScreen(
+                callSession = CallSession(callId = callId, callerName = "Maria"),
+                onCallAccepted = {
+                    Toast.makeText(context, "Call Connected", Toast.LENGTH_SHORT).show()
+                },
+                onCallDeclined = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // 9. Premium Paywall Screen
+        composable(ScreenRoutes.PREMIUM) {
+            PremiumScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onSubscriptionSuccess = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // 10. Main Profile Screen (Figma Screen 6)
         composable(ScreenRoutes.PROFILE) {
             ProfileScreen(
                 onNavigateToEditProfile = {
@@ -161,7 +217,7 @@ fun AppNavigation(
             )
         }
 
-        // 8. Edit Profile Sub-Screen
+        // 11. Edit Profile Sub-Screen
         composable(ScreenRoutes.EDIT_PROFILE) {
             EditProfileScreen(
                 onNavigateBack = {
