@@ -1,7 +1,8 @@
 package com.chooseme.forever.ui.profile
 
+import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.chooseme.forever.data.model.User
 import com.chooseme.forever.data.repository.ProfileRepository
@@ -24,17 +25,15 @@ data class ProfileUiState(
 )
 
 class ProfileViewModel(
-    private val repository: ProfileRepository = ProfileRepositoryImpl(),
-    private val authProvider: () -> FirebaseAuth? = {
-        try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
-    }
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository: ProfileRepository = ProfileRepositoryImpl(context = application)
+    private val auth: FirebaseAuth?
+        get() = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
-
-    private val auth: FirebaseAuth?
-        get() = authProvider()
 
     val currentUserId: String
         get() = auth?.currentUser?.uid ?: ""
@@ -45,11 +44,6 @@ class ProfileViewModel(
 
     fun loadUserProfile() {
         val uid = currentUserId
-        if (uid.isBlank()) {
-            _uiState.update { it.copy(user = null, isLoading = false) }
-            return
-        }
-
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
@@ -117,21 +111,14 @@ class ProfileViewModel(
         viewModelScope.launch {
             try {
                 val uploadResult = repository.uploadUserImage(uid, uri)
-                uploadResult.onSuccess { downloadUrl ->
-                    val currentUser = _uiState.value.user ?: User(userId = uid)
-                    val updatedPhotos = currentUser.photos + downloadUrl
-                    val updatedUser = currentUser.copy(photos = updatedPhotos)
+                val photoUrl = uploadResult.getOrDefault(uri.toString())
 
-                    repository.saveUserProfile(updatedUser)
-                    _uiState.update { it.copy(isSaving = false, user = updatedUser) }
-                }.onFailure { error ->
-                    _uiState.update {
-                        it.copy(
-                            isSaving = false,
-                            errorMessage = error.localizedMessage ?: "Photo upload failed"
-                        )
-                    }
-                }
+                val currentUser = _uiState.value.user ?: User(userId = uid)
+                val updatedPhotos = currentUser.photos + photoUrl
+                val updatedUser = currentUser.copy(photos = updatedPhotos)
+
+                repository.saveUserProfile(updatedUser)
+                _uiState.update { it.copy(isSaving = false, user = updatedUser) }
             } catch (e: Throwable) {
                 _uiState.update {
                     it.copy(

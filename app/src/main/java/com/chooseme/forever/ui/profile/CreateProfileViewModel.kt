@@ -1,7 +1,8 @@
 package com.chooseme.forever.ui.profile
 
+import android.app.Application
 import android.net.Uri
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.chooseme.forever.data.model.User
 import com.chooseme.forever.data.repository.ProfileRepository
@@ -36,17 +37,15 @@ data class CreateProfileUiState(
 }
 
 class CreateProfileViewModel(
-    private val repository: ProfileRepository = ProfileRepositoryImpl(),
-    private val authProvider: () -> FirebaseAuth? = {
-        try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
-    }
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository: ProfileRepository = ProfileRepositoryImpl(context = application)
+    private val auth: FirebaseAuth?
+        get() = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
 
     private val _uiState = MutableStateFlow(CreateProfileUiState())
     val uiState: StateFlow<CreateProfileUiState> = _uiState.asStateFlow()
-
-    private val auth: FirebaseAuth?
-        get() = authProvider()
 
     val currentUserId: String
         get() = auth?.currentUser?.uid ?: ""
@@ -116,9 +115,7 @@ class CreateProfileViewModel(
             var photoUrlList = emptyList<String>()
             state.photoUri?.let { uri ->
                 val uploadResult = repository.uploadUserImage(uid, uri)
-                uploadResult.getOrNull()?.let { url ->
-                    photoUrlList = listOf(url)
-                }
+                photoUrlList = listOf(uploadResult.getOrDefault(uri.toString()))
             }
 
             val user = User(
