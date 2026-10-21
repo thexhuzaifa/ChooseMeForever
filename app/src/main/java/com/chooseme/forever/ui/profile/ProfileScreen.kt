@@ -1,6 +1,7 @@
 package com.chooseme.forever.ui.profile
 
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -47,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.chooseme.forever.R
 import com.chooseme.forever.data.model.User
 import com.chooseme.forever.ui.components.AppLogo
 import com.chooseme.forever.ui.theme.ChooseMeForeverTheme
@@ -66,6 +69,7 @@ import com.chooseme.forever.ui.theme.TextSecondary
 @Composable
 fun ProfileScreen(
     onNavigateToEditProfile: () -> Unit,
+    onNavigateToDiscover: () -> Unit = {},
     onLogoutSuccess: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = viewModel()
@@ -100,8 +104,9 @@ fun ProfileScreen(
             BottomNavigationBar(
                 selectedTab = "profile",
                 onTabSelected = { tab ->
-                    if (tab != "profile") {
-                        Toast.makeText(context, "$tab coming soon!", Toast.LENGTH_SHORT).show()
+                    when (tab) {
+                        "discover" -> onNavigateToDiscover()
+                        "chat" -> Toast.makeText(context, "Chat coming in Day 4!", Toast.LENGTH_SHORT).show()
                     }
                 }
             )
