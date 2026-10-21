@@ -1,7 +1,6 @@
 package com.chooseme.forever.ui.profile
 
 import android.widget.Toast
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -48,7 +47,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -56,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.chooseme.forever.R
 import com.chooseme.forever.data.model.User
 import com.chooseme.forever.ui.components.AppLogo
 import com.chooseme.forever.ui.theme.ChooseMeForeverTheme
@@ -76,7 +73,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    val user = uiState.user ?: User(name = "Tomas", age = 25, city = "Newyork")
+    val user = uiState.user ?: User()
 
     // Logout Confirmation Dialog
     if (uiState.showLogoutDialog) {
@@ -106,7 +103,7 @@ fun ProfileScreen(
                 onTabSelected = { tab ->
                     when (tab) {
                         "discover" -> onNavigateToDiscover()
-                        "chat" -> Toast.makeText(context, "Chat coming in Day 4!", Toast.LENGTH_SHORT).show()
+                        "chat" -> Toast.makeText(context, "Chat Screen", Toast.LENGTH_SHORT).show()
                     }
                 }
             )
@@ -169,66 +166,66 @@ fun ProfileScreen(
 
                     // User Name, Age, City
                     Text(
-                        text = "${user.name.ifEmpty { "Tomas" }}, ${if (user.age > 0) user.age else 25}",
+                        text = if (user.age > 0) "${user.name}, ${user.age}" else user.name.ifEmpty { "My Profile" },
                         fontSize = 22.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    if (user.city.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = user.city,
+                            fontSize = 14.sp,
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
 
-                    Text(
-                        text = user.city.ifEmpty { "Newyork" },
-                        fontSize = 14.sp,
-                        color = TextSecondary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (user.bio.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = user.bio,
+                            fontSize = 14.sp,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+                    }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    if (user.interests.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(24.dp))
 
-                    // User Bio Text
-                    Text(
-                        text = user.bio.ifEmpty { "Coffee lover, weekend traveller. Looking for someone to explore new places with." },
-                        fontSize = 14.sp,
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp,
-                        modifier = Modifier.padding(horizontal = 12.dp)
-                    )
+                        Text(
+                            text = "Interests",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = TextSecondary,
+                            modifier = Modifier.fillMaxWidth()
+                        )
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
-                    // Interests Section
-                    Text(
-                        text = "Interests",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = TextSecondary,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    val displayInterests = if (user.interests.isNotEmpty()) user.interests else listOf("Music", "Travel", "Books", "Coffee")
-
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        displayInterests.forEach { interest ->
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(50))
-                                    .background(PrimaryPink)
-                                    .padding(horizontal = 18.dp, vertical = 8.dp)
-                            ) {
-                                Text(
-                                    text = interest,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.White
-                                )
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            user.interests.forEach { interest ->
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(PrimaryPink)
+                                        .padding(horizontal = 18.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = interest,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White
+                                    )
+                                }
                             }
                         }
                     }

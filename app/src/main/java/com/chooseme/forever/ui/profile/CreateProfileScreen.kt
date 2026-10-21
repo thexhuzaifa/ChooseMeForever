@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,8 +25,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -35,11 +40,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,7 +82,47 @@ fun CreateProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    // Photo Picker Launcher
+    var showCustomInterestDialog by remember { mutableStateOf(false) }
+    var customInterestInput by remember { mutableStateOf("") }
+
+    // Custom Interest Add Dialog
+    if (showCustomInterestDialog) {
+        AlertDialog(
+            onDismissRequest = { showCustomInterestDialog = false },
+            title = { Text("Add Custom Interest", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = customInterestInput,
+                    onValueChange = { customInterestInput = it },
+                    placeholder = { Text("e.g. Hiking, Gaming...") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryPink)
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (customInterestInput.isNotBlank()) {
+                            viewModel.addCustomInterest(customInterestInput)
+                            customInterestInput = ""
+                        }
+                        showCustomInterestDialog = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink)
+                ) {
+                    Text("Add")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCustomInterestDialog = false }) {
+                    Text("Cancel", color = TextSecondary)
+                }
+            },
+            containerColor = SurfaceWhite,
+            shape = RoundedCornerShape(20.dp)
+        )
+    }
+
     val photoPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -93,9 +142,7 @@ fun CreateProfileScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceWhite
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SurfaceWhite)
             )
         },
         bottomBar = {
@@ -115,16 +162,23 @@ fun CreateProfileScreen(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = PrimaryPink,
                         disabledContainerColor = PrimaryPink.copy(alpha = 0.4f),
-                        contentColor = Color.White,
-                        disabledContentColor = Color.White.copy(alpha = 0.8f)
+                        contentColor = Color.White
                     ),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
-                    Text(
-                        text = "Continue",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (uiState.isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = "Continue",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         },
@@ -156,7 +210,7 @@ fun CreateProfileScreen(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // Photo Picker with Crash-Proof App Logo
+            // Photo Picker
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
@@ -215,9 +269,7 @@ fun CreateProfileScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryPink,
-                    unfocusedBorderColor = BorderSubtle,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    unfocusedBorderColor = BorderSubtle
                 ),
                 singleLine = true
             )
@@ -226,7 +278,7 @@ fun CreateProfileScreen(
 
             // Age Field
             Text(
-                text = "Age",
+                text = "Age (Minimum 18)",
                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = TextPrimary
             )
@@ -234,15 +286,45 @@ fun CreateProfileScreen(
             OutlinedTextField(
                 value = uiState.age,
                 onValueChange = { viewModel.onAgeChanged(it) },
-                placeholder = { Text("Your age", color = TextSecondary.copy(alpha = 0.7f)) },
+                placeholder = { Text("Your age (e.g. 24)", color = TextSecondary.copy(alpha = 0.7f)) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
+                isError = uiState.ageError != null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryPink,
-                    unfocusedBorderColor = BorderSubtle,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    unfocusedBorderColor = BorderSubtle
+                ),
+                singleLine = true
+            )
+            if (uiState.ageError != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = uiState.ageError!!,
+                    color = Color.Red,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // City Field
+            Text(
+                text = "City",
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = TextPrimary
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedTextField(
+                value = uiState.city,
+                onValueChange = { viewModel.onCityChanged(it) },
+                placeholder = { Text("Your city (e.g. Lahore, New York)", color = TextSecondary.copy(alpha = 0.7f)) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = PrimaryPink,
+                    unfocusedBorderColor = BorderSubtle
                 ),
                 singleLine = true
             )
@@ -264,9 +346,7 @@ fun CreateProfileScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = PrimaryPink,
-                    unfocusedBorderColor = BorderSubtle,
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent
+                    unfocusedBorderColor = BorderSubtle
                 ),
                 minLines = 2,
                 maxLines = 4
@@ -275,11 +355,24 @@ fun CreateProfileScreen(
             Spacer(modifier = Modifier.height(22.dp))
 
             // Interests Section
-            Text(
-                text = "Interests",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = TextPrimary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Interests",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = TextPrimary
+                )
+                Text(
+                    text = "+ Add Custom",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryPink,
+                    modifier = Modifier.clickable { showCustomInterestDialog = true }
+                )
+            }
             Spacer(modifier = Modifier.height(10.dp))
 
             FlowRow(
@@ -314,6 +407,22 @@ fun CreateProfileScreen(
                         )
                     )
                 }
+
+                // Custom Pill Button
+                FilterChip(
+                    selected = false,
+                    onClick = { showCustomInterestDialog = true },
+                    label = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(imageVector = Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = PrimaryPink)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Custom", fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = PrimaryPink)
+                        }
+                    },
+                    colors = FilterChipDefaults.filterChipColors(containerColor = Color(0xFFFFF0F3)),
+                    shape = RoundedCornerShape(50),
+                    border = FilterChipDefaults.filterChipBorder(borderColor = PrimaryPink, enabled = true, selected = false)
+                )
             }
 
             Spacer(modifier = Modifier.height(32.dp))

@@ -46,17 +46,7 @@ class ProfileViewModel(
     fun loadUserProfile() {
         val uid = currentUserId
         if (uid.isBlank()) {
-            val demoUser = User(
-                userId = "demo_user",
-                name = "Tomas",
-                age = 25,
-                city = "Newyork",
-                bio = "Coffee lover, weekend traveller. Looking for someone to explore new places with.",
-                interests = listOf("Music", "Travel", "Books", "Coffee"),
-                photos = emptyList(),
-                isPremium = false
-            )
-            _uiState.update { it.copy(user = demoUser, isLoading = false) }
+            _uiState.update { it.copy(user = null, isLoading = false) }
             return
         }
 
@@ -67,15 +57,7 @@ class ProfileViewModel(
                 repository.getUserProfileFlow(uid)
                     .catch { emit(null) }
                     .collect { fetchedUser ->
-                        val user = fetchedUser ?: User(
-                            userId = uid,
-                            name = auth?.currentUser?.displayName ?: "Tomas",
-                            age = 25,
-                            city = "Newyork",
-                            bio = "Coffee lover, weekend traveller. Looking for someone to explore new places with.",
-                            interests = listOf("Music", "Travel", "Books", "Coffee")
-                        )
-                        _uiState.update { it.copy(user = user, isLoading = false) }
+                        _uiState.update { it.copy(user = fetchedUser, isLoading = false) }
                     }
             } catch (e: Throwable) {
                 _uiState.update { it.copy(isLoading = false) }
@@ -128,7 +110,8 @@ class ProfileViewModel(
     }
 
     fun uploadAndAddPhoto(uri: Uri) {
-        val uid = currentUserId.ifBlank { "demo_user" }
+        val uid = currentUserId
+        if (uid.isBlank()) return
         _uiState.update { it.copy(isSaving = true, errorMessage = null) }
 
         viewModelScope.launch {
@@ -170,7 +153,7 @@ class ProfileViewModel(
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        _uiState.update { it.copy(isLoggedOut = true, showLogoutDialog = false) }
+        _uiState.update { it.copy(isLoggedOut = true, user = null, showLogoutDialog = false) }
         onLoggedOut()
     }
 }
