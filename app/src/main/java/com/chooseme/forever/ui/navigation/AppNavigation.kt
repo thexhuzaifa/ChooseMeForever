@@ -132,8 +132,32 @@ fun AppNavigation(
                     },
                     onAuthSuccess = {
                         Toast.makeText(context, "Authentication successful!", Toast.LENGTH_SHORT).show()
-                        navController.navigate(ScreenRoutes.CREATE_PROFILE) {
-                            popUpTo(ScreenRoutes.WELCOME) { inclusive = true }
+                        val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (e: Exception) { null }
+                        val firestore = try { FirebaseFirestore.getInstance() } catch (e: Exception) { null }
+
+                        if (currentUser != null && firestore != null) {
+                            firestore.collection("users").document(currentUser.uid).get()
+                                .addOnSuccessListener { snapshot ->
+                                    val user = snapshot.toObject(User::class.java)
+                                    if (user != null && user.name.isNotBlank() && user.age >= 18) {
+                                        navController.navigate(ScreenRoutes.DISCOVER) {
+                                            popUpTo(ScreenRoutes.WELCOME) { inclusive = true }
+                                        }
+                                    } else {
+                                        navController.navigate(ScreenRoutes.CREATE_PROFILE) {
+                                            popUpTo(ScreenRoutes.WELCOME) { inclusive = true }
+                                        }
+                                    }
+                                }
+                                .addOnFailureListener {
+                                    navController.navigate(ScreenRoutes.CREATE_PROFILE) {
+                                        popUpTo(ScreenRoutes.WELCOME) { inclusive = true }
+                                    }
+                                }
+                        } else {
+                            navController.navigate(ScreenRoutes.CREATE_PROFILE) {
+                                popUpTo(ScreenRoutes.WELCOME) { inclusive = true }
+                            }
                         }
                     }
                 )
