@@ -263,6 +263,9 @@ fun AppNavigation(
                     onNavigateToDiscover = {
                         navController.navigate(ScreenRoutes.DISCOVER)
                     },
+                    onNavigateToChat = {
+                        navController.navigate(ScreenRoutes.CHAT_LIST)
+                    },
                     onLogoutSuccess = {
                         Toast.makeText(context, "Logged out", Toast.LENGTH_SHORT).show()
                         navController.navigate(ScreenRoutes.WELCOME) {

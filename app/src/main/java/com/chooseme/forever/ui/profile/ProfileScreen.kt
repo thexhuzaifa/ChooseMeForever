@@ -67,6 +67,7 @@ import com.chooseme.forever.ui.theme.TextSecondary
 fun ProfileScreen(
     onNavigateToEditProfile: () -> Unit,
     onNavigateToDiscover: () -> Unit = {},
+    onNavigateToChat: () -> Unit = {},
     onLogoutSuccess: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = viewModel()
@@ -103,7 +104,7 @@ fun ProfileScreen(
                 onTabSelected = { tab ->
                     when (tab) {
                         "discover" -> onNavigateToDiscover()
-                        "chat" -> Toast.makeText(context, "Chat Screen", Toast.LENGTH_SHORT).show()
+                        "chat" -> onNavigateToChat()
                     }
                 }
             )
