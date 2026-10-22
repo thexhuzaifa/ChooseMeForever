@@ -100,6 +100,12 @@ class AuthViewModel(
                     firebaseAuth.createUserWithEmailAndPassword(state.email, state.password)
                         .addOnCompleteListener { task ->
                             if (task.isSuccessful) {
+                                // Automatically send Firebase Verification Email
+                                try {
+                                    firebaseAuth.currentUser?.sendEmailVerification()
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                                 _uiState.update { it.copy(isLoading = false, isAuthenticated = true) }
                                 onSuccess()
                             } else {
