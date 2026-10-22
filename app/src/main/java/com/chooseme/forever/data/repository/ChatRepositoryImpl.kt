@@ -18,161 +18,60 @@ class ChatRepositoryImpl(
     }
 ) : ChatRepository {
 
-    // Default Demo Conversations matching Figma Screen 4
-    private val defaultConversations = listOf(
-        ChatConversation(
-            matchId = "match_maria",
-            otherUser = User(
-                userId = "user_maria",
-                name = "Maria",
-                age = 24,
-                city = "DC",
-                bio = "Coffee lover, weekend traveler.",
-                interests = listOf("Music", "Travel", "Books")
-            ),
-            lastMessage = "Skardu. We should compare notes over coffee sometime.",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 2,
-            unreadCount = 1
-        ),
-        ChatConversation(
-            matchId = "match_alex",
-            otherUser = User(
-                userId = "user_alex",
-                name = "Alex",
-                age = 25,
-                city = "Lahore",
-                bio = "Music & sports enthusiast."
-            ),
-            lastMessage = "Skardu. We should compare notes..",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 15,
-            unreadCount = 0
-        ),
-        ChatConversation(
-            matchId = "match_sara",
-            otherUser = User(
-                userId = "user_sara",
-                name = "Sara",
-                age = 23,
-                city = "Karachi",
-                bio = "Foodie & designer."
-            ),
-            lastMessage = "Haha that sounds fun!",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 24,
-            unreadCount = 0
-        ),
-        ChatConversation(
-            matchId = "match_hira",
-            otherUser = User(
-                userId = "user_hira",
-                name = "Hira",
-                age = 24,
-                city = "Islamabad"
-            ),
-            lastMessage = "Say hi to Hira",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 48,
-            unreadCount = 0
-        ),
-        ChatConversation(
-            matchId = "match_flora",
-            otherUser = User(
-                userId = "user_flora",
-                name = "Flora",
-                age = 22,
-                city = "Peshawar"
-            ),
-            lastMessage = "Say hi to Zainab",
-            lastMessageTimestamp = System.currentTimeMillis() - 1000 * 60 * 60 * 72,
-            unreadCount = 0
-        )
-    )
-
-    // Default Demo Messages matching Figma Screen 5
-    private fun getDefaultMessages(matchId: String): List<ChatMessage> {
-        return listOf(
-            ChatMessage(
-                messageId = "msg_1",
-                senderId = "user_maria",
-                receiverId = "me",
-                text = "Hey! I saw you like travel too.",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 10
-            ),
-            ChatMessage(
-                messageId = "msg_2",
-                senderId = "me",
-                receiverId = "user_maria",
-                text = "Hi Maria! Yes, I love it. Favourite place so far?",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 8
-            ),
-            ChatMessage(
-                messageId = "msg_3",
-                senderId = "user_maria",
-                receiverId = "me",
-                text = "Hunza, hands down. You?",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 5
-            ),
-            ChatMessage(
-                messageId = "msg_4",
-                senderId = "me",
-                receiverId = "user_maria",
-                text = "Skardu. We should compare notes over coffee sometime.",
-                timestamp = System.currentTimeMillis() - 1000 * 60 * 2
-            )
-        )
-    }
-
     override fun getActiveConversations(currentUserId: String): Flow<List<ChatConversation>> = callbackFlow {
         val firestore = firestoreProvider()
-        val effectiveUid = currentUserId.ifBlank { "me" }
-
-        if (firestore == null) {
-            trySend(defaultConversations)
+        if (firestore == null || currentUserId.isBlank()) {
+            trySend(emptyList())
             close()
             return@callbackFlow
         }
 
         try {
             firestore.collection("matches")
-                .whereArrayContains("users", effectiveUid)
+                .whereArrayContains("users", currentUserId)
                 .addSnapshotListener { snapshot, error ->
                     if (error != null || snapshot == null || snapshot.isEmpty) {
-                        trySend(defaultConversations)
+                        trySend(emptyList())
                         return@addSnapshotListener
                     }
 
-                    val conversations = snapshot.documents.mapNotNull { doc ->
-                        val users = doc.get("users") as? List<*> ?: return@mapNotNull null
-                        val partnerId = users.firstOrNull { it != effectiveUid } as? String ?: return@mapNotNull null
+                    val conversations = mutableListOf<ChatConversation>()
+                    for (doc in snapshot.documents) {
+                        val users = doc.get("users") as? List<*> ?: continue
+                        val partnerId = users.firstOrNull { it != currentUserId } as? String ?: continue
                         val lastMsg = doc.getString("lastMessage") ?: "Say hi!"
                         val lastTime = doc.getLong("lastMessageTimestamp") ?: System.currentTimeMillis()
 
-                        ChatConversation(
-                            matchId = doc.id,
-                            otherUser = User(userId = partnerId, name = partnerId.replaceFirstChar { it.uppercase() }),
-                            lastMessage = lastMsg,
-                            lastMessageTimestamp = lastTime
+                        conversations.add(
+                            ChatConversation(
+                                matchId = doc.id,
+                                otherUser = User(
+                                    userId = partnerId,
+                                    name = if (partnerId.startsWith("bot_") || partnerId.startsWith("user_")) {
+                                        partnerId.removePrefix("bot_").removePrefix("user_").replaceFirstChar { it.uppercase() }
+                                    } else "Match Partner"
+                                ),
+                                lastMessage = lastMsg,
+                                lastMessageTimestamp = lastTime
+                            )
                         )
                     }
 
-                    if (conversations.isEmpty()) {
-                        trySend(defaultConversations)
-                    } else {
-                        trySend(conversations)
-                    }
+                    trySend(conversations)
                 }
         } catch (e: Exception) {
-            trySend(defaultConversations)
+            trySend(emptyList())
         }
 
         awaitClose { }
     }.catch {
-        emit(defaultConversations)
+        emit(emptyList())
     }
 
     override fun getMessages(matchId: String): Flow<List<ChatMessage>> = callbackFlow {
         val firestore = firestoreProvider()
-
-        if (firestore == null || matchId.startsWith("match_")) {
-            trySend(getDefaultMessages(matchId))
+        if (firestore == null || matchId.isBlank()) {
+            trySend(emptyList())
             close()
             return@callbackFlow
         }
@@ -183,8 +82,8 @@ class ChatRepositoryImpl(
                 .collection("messages")
                 .orderBy("timestamp", Query.Direction.ASCENDING)
                 .addSnapshotListener { snapshot, error ->
-                    if (error != null || snapshot == null || snapshot.isEmpty) {
-                        trySend(getDefaultMessages(matchId))
+                    if (error != null || snapshot == null) {
+                        trySend(emptyList())
                         return@addSnapshotListener
                     }
 
@@ -192,12 +91,12 @@ class ChatRepositoryImpl(
                     trySend(messages)
                 }
         } catch (e: Exception) {
-            trySend(getDefaultMessages(matchId))
+            trySend(emptyList())
         }
 
         awaitClose { }
     }.catch {
-        emit(getDefaultMessages(matchId))
+        emit(emptyList())
     }
 
     override suspend fun sendMessage(

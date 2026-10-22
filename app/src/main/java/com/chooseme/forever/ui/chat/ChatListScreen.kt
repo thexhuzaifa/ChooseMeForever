@@ -2,6 +2,7 @@ package com.chooseme.forever.ui.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,9 +19,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
@@ -34,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -41,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.chooseme.forever.data.model.ChatConversation
+import com.chooseme.forever.ui.components.AppLogo
 import com.chooseme.forever.ui.profile.BottomNavigationBar
 import com.chooseme.forever.ui.theme.BorderSubtle
 import com.chooseme.forever.ui.theme.ChooseMeForeverTheme
@@ -121,6 +127,47 @@ fun ChatListScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = PrimaryPink)
                 }
+            } else if (uiState.filteredConversations.isEmpty()) {
+                // Clean Empty State when no active matches or messages
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 60.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    AppLogo(size = 90.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "No conversations yet",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Swipe and match with someone in Discover to start chatting!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 16.dp)
+                    )
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = onNavigateToDiscover,
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryPink,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "Go to Discover",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     items(uiState.filteredConversations) { conversation ->
@@ -148,12 +195,11 @@ fun ConversationListItem(
     val otherUser = conversation.otherUser
     val photoUrl = otherUser.photos.firstOrNull()
 
-    // Determine colorful avatar badge based on name matching Figma Screen 4
     val badgeColor = when (otherUser.name.take(1).uppercase()) {
-        "A" -> Color(0xFFFF4B72) // Pink
-        "S" -> Color(0xFF7A52C7) // Purple
-        "H" -> Color(0xFF1CA49A) // Teal
-        "Z", "F" -> Color(0xFFF7A038) // Orange
+        "A" -> Color(0xFFFF4B72)
+        "S" -> Color(0xFF7A52C7)
+        "H" -> Color(0xFF1CA49A)
+        "Z", "F" -> Color(0xFFF7A038)
         else -> PrimaryPink
     }
 
@@ -168,7 +214,7 @@ fun ConversationListItem(
                 .padding(vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Circular Avatar
+            // Circular Avatar Badge
             Box(
                 modifier = Modifier
                     .size(56.dp)
