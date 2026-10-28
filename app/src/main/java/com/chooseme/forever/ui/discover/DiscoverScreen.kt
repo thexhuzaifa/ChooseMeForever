@@ -75,7 +75,111 @@ fun DiscoverScreen(
     val topProfile = uiState.topProfile
     val backgroundProfile = uiState.backgroundProfile
 
-    // It's a Match! Celebration Dialog
+    // 1. Incoming Like Request Notification Dialog
+    uiState.incomingLikeRequest?.let { request ->
+        AlertDialog(
+            onDismissRequest = { },
+            title = { },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "❤️ New Match Request!",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryPink,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "${request.senderName} liked your profile!",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Accept to start chatting and connect.",
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .border(2.dp, PrimaryPink, CircleShape)
+                    ) {
+                        if (request.senderPhoto.isNotBlank()) {
+                            AsyncImage(
+                                model = request.senderPhoto,
+                                contentDescription = request.senderName,
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        } else {
+                            AppLogo(size = 80.dp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Accept Button
+                    Button(
+                        onClick = { viewModel.acceptIncomingRequest(request) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryPink,
+                            contentColor = Color.White
+                        )
+                    ) {
+                        Text(
+                            text = "Accept Request",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Decline Button
+                    OutlinedButton(
+                        onClick = { viewModel.declineIncomingRequest(request) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(50),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE53935))
+                    ) {
+                        Text(
+                            text = "Decline",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFE53935)
+                        )
+                    }
+                }
+            },
+            confirmButton = { },
+            containerColor = SurfaceWhite,
+            shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    // 2. It's a Match! Celebration Dialog
     uiState.matchEvent?.let { matchData ->
         AlertDialog(
             onDismissRequest = { viewModel.dismissMatchDialog() },
@@ -96,7 +200,7 @@ fun DiscoverScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     Text(
-                        text = "You and ${matchData.matchedUser.name} liked each other.",
+                        text = "You and ${matchData.matchedUser.name} connected!",
                         fontSize = 14.sp,
                         color = TextSecondary,
                         textAlign = TextAlign.Center
@@ -256,18 +360,18 @@ fun DiscoverScreen(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Check back later or update your filter preferences.",
+                            text = "Check back later or refresh to discover new candidates.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = TextSecondary,
                             textAlign = TextAlign.Center
                         )
                         Spacer(modifier = Modifier.height(20.dp))
-                        OutlinedButton(
+                        Button(
                             onClick = { viewModel.loadDiscoveryProfiles() },
                             shape = RoundedCornerShape(50),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryPink)
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryPink)
                         ) {
-                            Text("Refresh Candidates", color = PrimaryPink)
+                            Text("Refresh Candidates", color = Color.White, fontWeight = FontWeight.Bold)
                         }
                     }
                 } else {

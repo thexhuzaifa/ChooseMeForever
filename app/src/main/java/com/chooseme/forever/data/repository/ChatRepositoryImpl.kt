@@ -36,36 +36,38 @@ class ChatRepositoryImpl(
                     }
 
                     val conversations = mutableListOf<ChatConversation>()
+                    val pendingDocs = snapshot.documents.size
+                    var processedDocs = 0
+
                     for (doc in snapshot.documents) {
                         val users = doc.get("users") as? List<*> ?: continue
                         val partnerId = users.firstOrNull { it != currentUserId } as? String ?: continue
-                        val lastMsg = doc.getString("lastMessage") ?: ""
+                        val lastMsg = doc.getString("lastMessage") ?: "Match created! Say hi 👋"
                         val lastTime = doc.getLong("lastMessageTimestamp") ?: System.currentTimeMillis()
 
-                        // Fetch real partner user profile details
                         firestore.collection("users").document(partnerId).get()
                             .addOnSuccessListener { partnerDoc ->
-                                val partnerUser = partnerDoc.toObject(User::class.java) ?: User(userId = partnerId, name = "Match Partner")
-                                conversations.add(
-                                    ChatConversation(
-                                        matchId = doc.id,
-                                        otherUser = partnerUser,
-                                        lastMessage = lastMsg,
-                                        lastMessageTimestamp = lastTime
+                                val partnerUser = partnerDoc.toObject(User::class.java)
+                                if (partnerUser != null && partnerUser.name.isNotBlank()) {
+                                    conversations.add(
+                                        ChatConversation(
+                                            matchId = doc.id,
+                                            otherUser = partnerUser,
+                                            lastMessage = lastMsg,
+                                            lastMessageTimestamp = lastTime
+                                        )
                                     )
-                                )
-                                trySend(conversations.toList())
+                                }
+                                processedDocs++
+                                if (processedDocs == pendingDocs) {
+                                    trySend(conversations.toList())
+                                }
                             }
                             .addOnFailureListener {
-                                conversations.add(
-                                    ChatConversation(
-                                        matchId = doc.id,
-                                        otherUser = User(userId = partnerId, name = "Match Partner"),
-                                        lastMessage = lastMsg,
-                                        lastMessageTimestamp = lastTime
-                                    )
-                                )
-                                trySend(conversations.toList())
+                                processedDocs++
+                                if (processedDocs == pendingDocs) {
+                                    trySend(conversations.toList())
+                                }
                             }
                     }
                 }
