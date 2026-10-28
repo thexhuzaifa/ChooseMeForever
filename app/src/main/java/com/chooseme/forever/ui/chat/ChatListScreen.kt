@@ -254,7 +254,8 @@ fun ConversationListItem(
                 Text(
                     text = conversation.lastMessage,
                     fontSize = 14.sp,
-                    color = TextSecondary,
+                    color = if (conversation.unreadCount > 0) TextPrimary else TextSecondary,
+                    fontWeight = if (conversation.unreadCount > 0) FontWeight.SemiBold else FontWeight.Normal,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -262,13 +263,33 @@ fun ConversationListItem(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Relative Timestamp
-            Text(
-                text = formatRelativeTime(conversation.lastMessageTimestamp),
-                fontSize = 12.sp,
-                color = TextSecondary,
-                fontWeight = FontWeight.Medium
-            )
+            // Relative Timestamp & Unread Messages Count Badge (1, 2, 3...)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatRelativeTime(conversation.lastMessageTimestamp),
+                    fontSize = 12.sp,
+                    color = if (conversation.unreadCount > 0) PrimaryPink else TextSecondary,
+                    fontWeight = if (conversation.unreadCount > 0) FontWeight.Bold else FontWeight.Medium
+                )
+
+                if (conversation.unreadCount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(PrimaryPink),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = conversation.unreadCount.toString(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
         }
 
         HorizontalDivider(
@@ -288,10 +309,10 @@ private fun formatRelativeTime(timestamp: Long): String {
 
     return when {
         minutes < 1 -> "Just now"
-        minutes < 60 -> "${minutes}m"
-        hours < 24 -> "9:41"
+        minutes < 60 -> "${minutes}m ago"
+        hours < 24 -> "${hours}h ago"
         days < 2 -> "Yesterday"
-        days < 7 -> "Mon"
+        days < 7 -> "${days}d ago"
         else -> "Sun"
     }
 }
