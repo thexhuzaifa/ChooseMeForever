@@ -39,25 +39,35 @@ class ChatRepositoryImpl(
                     for (doc in snapshot.documents) {
                         val users = doc.get("users") as? List<*> ?: continue
                         val partnerId = users.firstOrNull { it != currentUserId } as? String ?: continue
-                        val lastMsg = doc.getString("lastMessage") ?: "Say hi!"
+                        val lastMsg = doc.getString("lastMessage") ?: ""
                         val lastTime = doc.getLong("lastMessageTimestamp") ?: System.currentTimeMillis()
 
-                        conversations.add(
-                            ChatConversation(
-                                matchId = doc.id,
-                                otherUser = User(
-                                    userId = partnerId,
-                                    name = if (partnerId.startsWith("bot_") || partnerId.startsWith("user_")) {
-                                        partnerId.removePrefix("bot_").removePrefix("user_").replaceFirstChar { it.uppercase() }
-                                    } else "Match Partner"
-                                ),
-                                lastMessage = lastMsg,
-                                lastMessageTimestamp = lastTime
-                            )
-                        )
+                        // Fetch real partner user profile details
+                        firestore.collection("users").document(partnerId).get()
+                            .addOnSuccessListener { partnerDoc ->
+                                val partnerUser = partnerDoc.toObject(User::class.java) ?: User(userId = partnerId, name = "Match Partner")
+                                conversations.add(
+                                    ChatConversation(
+                                        matchId = doc.id,
+                                        otherUser = partnerUser,
+                                        lastMessage = lastMsg,
+                                        lastMessageTimestamp = lastTime
+                                    )
+                                )
+                                trySend(conversations.toList())
+                            }
+                            .addOnFailureListener {
+                                conversations.add(
+                                    ChatConversation(
+                                        matchId = doc.id,
+                                        otherUser = User(userId = partnerId, name = "Match Partner"),
+                                        lastMessage = lastMsg,
+                                        lastMessageTimestamp = lastTime
+                                    )
+                                )
+                                trySend(conversations.toList())
+                            }
                     }
-
-                    trySend(conversations)
                 }
         } catch (e: Exception) {
             trySend(emptyList())

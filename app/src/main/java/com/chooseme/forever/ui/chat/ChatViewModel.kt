@@ -39,7 +39,7 @@ class ChatViewModel(
         get() = authProvider()
 
     val currentUserId: String
-        get() = auth?.currentUser?.uid ?: "me"
+        get() = auth?.currentUser?.uid ?: ""
 
     private var currentMatchId: String = ""
     private var currentPartnerId: String = ""
@@ -56,18 +56,10 @@ class ChatViewModel(
         viewModelScope.launch {
             val result = profileRepository.getUserProfile(partnerUserId)
             result.onSuccess { fetchedUser ->
-                val partner = fetchedUser ?: User(
-                    userId = partnerUserId,
-                    name = if (partnerUserId.startsWith("user_")) partnerUserId.removePrefix("user_").replaceFirstChar { it.uppercase() } else "Maria",
-                    city = "DC"
-                )
+                val partner = fetchedUser ?: User(userId = partnerUserId, name = "Partner")
                 _uiState.update { it.copy(partnerUser = partner) }
             }.onFailure {
-                val partner = User(
-                    userId = partnerUserId,
-                    name = "Maria",
-                    city = "DC"
-                )
+                val partner = User(userId = partnerUserId, name = "Partner")
                 _uiState.update { it.copy(partnerUser = partner) }
             }
         }
@@ -130,7 +122,9 @@ class ChatViewModel(
             val isPremium = myProfileResult.getOrNull()?.isPremium ?: false
 
             if (isPremium) {
-                onStartCall(currentPartnerId.ifBlank { "user_maria" })
+                if (currentPartnerId.isNotBlank()) {
+                    onStartCall(currentPartnerId)
+                }
             } else {
                 onNavigateToPremium()
             }
