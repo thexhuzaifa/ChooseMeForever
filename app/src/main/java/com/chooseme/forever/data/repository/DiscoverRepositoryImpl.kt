@@ -18,47 +18,18 @@ class DiscoverRepositoryImpl(
     }
 ) : DiscoverRepository {
 
-    private val botProfiles = listOf(
-        User(
-            userId = "bot_maria",
-            name = "Maria",
-            age = 24,
-            city = "DC",
-            bio = "Coffee lover, weekend traveler. Looking for someone to explore new places with.",
-            interests = listOf("Music", "Travel", "Books"),
-            photos = emptyList()
-        ),
-        User(
-            userId = "bot_sophia",
-            name = "Sophia",
-            age = 23,
-            city = "New York",
-            bio = "Architect & food enthusiast. Always up for live concerts and museum dates.",
-            interests = listOf("Art", "Coffee", "Fitness"),
-            photos = emptyList()
-        ),
-        User(
-            userId = "bot_emma",
-            name = "Emma",
-            age = 26,
-            city = "San Francisco",
-            bio = "Tech designer who loves hiking, photography, and trying new sushi spots.",
-            interests = listOf("Cooking", "Photography", "Travel"),
-            photos = emptyList()
-        )
-    )
-
     override fun getDiscoveryProfiles(currentUserId: String): Flow<List<User>> = callbackFlow {
         val firestore = firestoreProvider()
         val effectiveUid = currentUserId.ifBlank { "guest_user" }
 
         if (firestore == null) {
-            trySend(botProfiles)
+            trySend(emptyList())
             close()
             return@callbackFlow
         }
 
         try {
+            // Fetch swiped user IDs for current user
             firestore.collection("likes")
                 .document(effectiveUid)
                 .collection("userLikes")
@@ -66,35 +37,41 @@ class DiscoverRepositoryImpl(
                 .addOnSuccessListener { swipedSnapshots ->
                     val swipedUserIds = swipedSnapshots.documents.map { it.id }.toSet()
 
+                    // Listen to real users in users collection
                     firestore.collection("users")
                         .addSnapshotListener { usersSnapshot, error ->
                             if (error != null || usersSnapshot == null) {
-                                trySend(botProfiles.filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) })
+                                trySend(emptyList())
                                 return@addSnapshotListener
                             }
 
                             val realProfiles = usersSnapshot.documents
-                                .mapNotNull { it.toObject(User::class.java) }
-                                .filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) }
+                                .mapNotNull { doc ->
+                                    val user = doc.toObject(User::class.java)
+                                    val uid = user?.userId?.ifBlank { doc.id } ?: doc.id
+                                    if (user != null) {
+                                        user.copy(userId = uid)
+                                    } else null
+                                }
+                                .filter { candidate ->
+                                    candidate.userId != effectiveUid &&
+                                            !swipedUserIds.contains(candidate.userId) &&
+                                            candidate.name.isNotBlank()
+                                }
 
-                            if (realProfiles.isEmpty()) {
-                                val filteredBots = botProfiles.filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) }
-                                trySend(filteredBots)
-                            } else {
-                                trySend(realProfiles)
-                            }
+                            trySend(realProfiles)
                         }
                 }
                 .addOnFailureListener {
-                    trySend(botProfiles)
+                    trySend(emptyList())
                 }
         } catch (e: Exception) {
-            trySend(botProfiles)
+            trySend(emptyList())
         }
 
         awaitClose { }
     }.catch {
-        emit(botProfiles)
+        emit(emptyList())
     }
 
     override fun getIncomingLikeRequests(currentUserId: String): Flow<List<LikeRequest>> = callbackFlow {
@@ -135,8 +112,7 @@ class DiscoverRepositoryImpl(
             val effectiveUid = currentUserId.ifBlank { "guest_user" }
 
             if (firestore == null) {
-                val isDemoMatch = isLiked && targetUserId.startsWith("bot_")
-                return Result.success(isDemoMatch)
+                return Result.success(false)
             }
 
             // 1. Record swipe in likes/{currentUserId}/userLikes/{targetUserId}
@@ -170,7 +146,7 @@ class DiscoverRepositoryImpl(
                     .get()
                     .await()
 
-                val isMutual = incomingRequestDoc.exists() || (targetSwipeDoc.exists() && targetSwipeDoc.getBoolean("isLiked") == true) || targetUserId.startsWith("bot_")
+                val isMutual = incomingRequestDoc.exists() || (targetSwipeDoc.exists() && targetSwipeDoc.getBoolean("isLiked") == true)
 
                 if (isMutual) {
                     // Mutual Match Triggered! Create Match Document
@@ -224,8 +200,7 @@ class DiscoverRepositoryImpl(
 
             Result.success(false)
         } catch (e: Exception) {
-            val isDemoMatch = isLiked && targetUserId.startsWith("bot_")
-            Result.success(isDemoMatch)
+            Result.success(false)
         }
     }
 
