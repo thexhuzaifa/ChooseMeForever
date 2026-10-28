@@ -1,6 +1,7 @@
 package com.chooseme.forever.data.repository
 
 import com.chooseme.forever.data.model.Like
+import com.chooseme.forever.data.model.LikeRequest
 import com.chooseme.forever.data.model.Match
 import com.chooseme.forever.data.model.User
 import com.google.firebase.firestore.FirebaseFirestore
@@ -17,9 +18,9 @@ class DiscoverRepositoryImpl(
     }
 ) : DiscoverRepository {
 
-    private val defaultDemoUsers = listOf(
+    private val botProfiles = listOf(
         User(
-            userId = "user_maria",
+            userId = "bot_maria",
             name = "Maria",
             age = 24,
             city = "DC",
@@ -28,7 +29,7 @@ class DiscoverRepositoryImpl(
             photos = emptyList()
         ),
         User(
-            userId = "user_sophia",
+            userId = "bot_sophia",
             name = "Sophia",
             age = 23,
             city = "New York",
@@ -37,7 +38,7 @@ class DiscoverRepositoryImpl(
             photos = emptyList()
         ),
         User(
-            userId = "user_emma",
+            userId = "bot_emma",
             name = "Emma",
             age = 26,
             city = "San Francisco",
@@ -52,7 +53,7 @@ class DiscoverRepositoryImpl(
         val effectiveUid = currentUserId.ifBlank { "guest_user" }
 
         if (firestore == null) {
-            trySend(defaultDemoUsers)
+            trySend(botProfiles)
             close()
             return@callbackFlow
         }
@@ -68,32 +69,64 @@ class DiscoverRepositoryImpl(
                     firestore.collection("users")
                         .addSnapshotListener { usersSnapshot, error ->
                             if (error != null || usersSnapshot == null) {
-                                trySend(defaultDemoUsers.filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) })
+                                trySend(botProfiles.filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) })
                                 return@addSnapshotListener
                             }
 
-                            val profiles = usersSnapshot.documents
+                            val realProfiles = usersSnapshot.documents
                                 .mapNotNull { it.toObject(User::class.java) }
                                 .filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) }
 
-                            if (profiles.isEmpty()) {
-                                val demoFiltered = defaultDemoUsers.filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) }
-                                trySend(demoFiltered)
+                            if (realProfiles.isEmpty()) {
+                                val filteredBots = botProfiles.filter { it.userId != effectiveUid && !swipedUserIds.contains(it.userId) }
+                                trySend(filteredBots)
                             } else {
-                                trySend(profiles)
+                                trySend(realProfiles)
                             }
                         }
                 }
                 .addOnFailureListener {
-                    trySend(defaultDemoUsers)
+                    trySend(botProfiles)
                 }
         } catch (e: Exception) {
-            trySend(defaultDemoUsers)
+            trySend(botProfiles)
         }
 
         awaitClose { }
     }.catch {
-        emit(defaultDemoUsers)
+        emit(botProfiles)
+    }
+
+    override fun getIncomingLikeRequests(currentUserId: String): Flow<List<LikeRequest>> = callbackFlow {
+        val firestore = firestoreProvider()
+        if (firestore == null || currentUserId.isBlank()) {
+            trySend(emptyList())
+            close()
+            return@callbackFlow
+        }
+
+        try {
+            val listener = firestore.collection("requests")
+                .document(currentUserId)
+                .collection("incomingLikes")
+                .whereEqualTo("status", "PENDING")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null || snapshot == null) {
+                        trySend(emptyList())
+                        return@addSnapshotListener
+                    }
+
+                    val requests = snapshot.documents.mapNotNull { it.toObject(LikeRequest::class.java) }
+                    trySend(requests)
+                }
+
+            awaitClose { listener.remove() }
+        } catch (e: Exception) {
+            trySend(emptyList())
+            awaitClose { }
+        }
+    }.catch {
+        emit(emptyList())
     }
 
     override suspend fun recordSwipe(currentUserId: String, targetUserId: String, isLiked: Boolean): Result<Boolean> {
@@ -102,10 +135,11 @@ class DiscoverRepositoryImpl(
             val effectiveUid = currentUserId.ifBlank { "guest_user" }
 
             if (firestore == null) {
-                val isDemoMatch = isLiked && (targetUserId == "user_maria" || targetUserId == "user_sophia")
+                val isDemoMatch = isLiked && targetUserId.startsWith("bot_")
                 return Result.success(isDemoMatch)
             }
 
+            // 1. Record swipe in likes/{currentUserId}/userLikes/{targetUserId}
             val swipeData = Like(
                 fromUserId = effectiveUid,
                 toUserId = targetUserId,
@@ -121,6 +155,14 @@ class DiscoverRepositoryImpl(
                 .await()
 
             if (isLiked) {
+                // Check if target user has sent an incoming like request or liked current user back
+                val incomingRequestDoc = firestore.collection("requests")
+                    .document(effectiveUid)
+                    .collection("incomingLikes")
+                    .document(targetUserId)
+                    .get()
+                    .await()
+
                 val targetSwipeDoc = firestore.collection("likes")
                     .document(targetUserId)
                     .collection("userLikes")
@@ -128,9 +170,10 @@ class DiscoverRepositoryImpl(
                     .get()
                     .await()
 
-                val isTargetLikedUs = targetSwipeDoc.exists() && targetSwipeDoc.getBoolean("isLiked") == true
+                val isMutual = incomingRequestDoc.exists() || (targetSwipeDoc.exists() && targetSwipeDoc.getBoolean("isLiked") == true) || targetUserId.startsWith("bot_")
 
-                if (isTargetLikedUs || targetUserId.startsWith("user_")) {
+                if (isMutual) {
+                    // Mutual Match Triggered! Create Match Document
                     val matchId = UUID.randomUUID().toString()
                     val matchData = Match(
                         matchId = matchId,
@@ -143,14 +186,95 @@ class DiscoverRepositoryImpl(
                         .set(matchData)
                         .await()
 
+                    // Remove processed incoming request
+                    if (incomingRequestDoc.exists()) {
+                        firestore.collection("requests")
+                            .document(effectiveUid)
+                            .collection("incomingLikes")
+                            .document(targetUserId)
+                            .delete()
+                            .await()
+                    }
+
                     return Result.success(true)
+                } else {
+                    // Send Like Request to Target User
+                    val currentUserDoc = firestore.collection("users").document(effectiveUid).get().await()
+                    val currentUser = currentUserDoc.toObject(User::class.java)
+
+                    val likeReq = LikeRequest(
+                        senderId = effectiveUid,
+                        receiverId = targetUserId,
+                        senderName = currentUser?.name ?: "Someone",
+                        senderPhoto = currentUser?.photos?.firstOrNull() ?: "",
+                        status = "PENDING",
+                        timestamp = System.currentTimeMillis()
+                    )
+
+                    firestore.collection("requests")
+                        .document(targetUserId)
+                        .collection("incomingLikes")
+                        .document(effectiveUid)
+                        .set(likeReq)
+                        .await()
+
+                    return Result.success(false)
                 }
             }
 
             Result.success(false)
         } catch (e: Exception) {
-            val isDemoMatch = isLiked && (targetUserId == "user_maria" || targetUserId == "user_sophia")
+            val isDemoMatch = isLiked && targetUserId.startsWith("bot_")
             Result.success(isDemoMatch)
+        }
+    }
+
+    override suspend fun acceptLikeRequest(currentUserId: String, senderId: String): Result<Boolean> {
+        return try {
+            val firestore = firestoreProvider()
+            if (firestore == null || currentUserId.isBlank()) return Result.success(true)
+
+            // Create Match
+            val matchId = UUID.randomUUID().toString()
+            val matchData = Match(
+                matchId = matchId,
+                users = listOf(currentUserId, senderId),
+                createdAt = System.currentTimeMillis()
+            )
+
+            firestore.collection("matches")
+                .document(matchId)
+                .set(matchData)
+                .await()
+
+            // Delete incoming request
+            firestore.collection("requests")
+                .document(currentUserId)
+                .collection("incomingLikes")
+                .document(senderId)
+                .delete()
+                .await()
+
+            Result.success(true)
+        } catch (e: Exception) {
+            Result.success(true)
+        }
+    }
+
+    override suspend fun declineLikeRequest(currentUserId: String, senderId: String): Result<Unit> {
+        return try {
+            val firestore = firestoreProvider() ?: return Result.success(Unit)
+
+            firestore.collection("requests")
+                .document(currentUserId)
+                .collection("incomingLikes")
+                .document(senderId)
+                .delete()
+                .await()
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.success(Unit)
         }
     }
 }
