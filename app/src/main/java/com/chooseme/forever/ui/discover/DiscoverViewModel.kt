@@ -1,9 +1,11 @@
 package com.chooseme.forever.ui.discover
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.chooseme.forever.data.model.LikeRequest
 import com.chooseme.forever.data.model.User
+import com.chooseme.forever.data.remote.notification.AppNotificationManager
 import com.chooseme.forever.data.repository.DiscoverRepository
 import com.chooseme.forever.data.repository.DiscoverRepositoryImpl
 import com.chooseme.forever.data.repository.ProfileRepository
@@ -36,18 +38,18 @@ data class DiscoverUiState(
 }
 
 class DiscoverViewModel(
-    private val repository: DiscoverRepository = DiscoverRepositoryImpl(),
-    private val profileRepository: ProfileRepository = ProfileRepositoryImpl(),
-    private val authProvider: () -> FirebaseAuth? = {
-        try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
-    }
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val repository: DiscoverRepository = DiscoverRepositoryImpl()
+    private val profileRepository: ProfileRepository = ProfileRepositoryImpl(context = application)
+    private val auth: FirebaseAuth?
+        get() = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
 
     private val _uiState = MutableStateFlow(DiscoverUiState())
     val uiState: StateFlow<DiscoverUiState> = _uiState.asStateFlow()
 
-    private val auth: FirebaseAuth?
-        get() = authProvider()
+    private val notificationManager = try { AppNotificationManager(application) } catch (e: Exception) { null }
 
     val currentUserId: String
         get() = auth?.currentUser?.uid ?: ""
@@ -84,11 +86,21 @@ class DiscoverViewModel(
 
         viewModelScope.launch {
             try {
+                var previousRequestId: String? = null
                 repository.getIncomingLikeRequests(currentUserId)
                     .catch { emit(emptyList()) }
                     .collect { requests ->
                         val latestRequest = requests.firstOrNull()
                         _uiState.update { it.copy(incomingLikeRequest = latestRequest) }
+
+                        if (latestRequest != null && latestRequest.senderId != previousRequestId) {
+                            previousRequestId = latestRequest.senderId
+                            try {
+                                notificationManager?.showMatchRequestNotification(latestRequest.senderName)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
                     }
             } catch (e: Throwable) {
                 e.printStackTrace()

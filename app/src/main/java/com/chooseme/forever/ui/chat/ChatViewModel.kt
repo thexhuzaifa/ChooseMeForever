@@ -1,9 +1,11 @@
 package com.chooseme.forever.ui.chat
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.chooseme.forever.data.model.ChatMessage
 import com.chooseme.forever.data.model.User
+import com.chooseme.forever.data.remote.notification.AppNotificationManager
 import com.chooseme.forever.data.repository.ChatRepository
 import com.chooseme.forever.data.repository.ChatRepositoryImpl
 import com.chooseme.forever.data.repository.ProfileRepository
@@ -25,18 +27,18 @@ data class ChatUiState(
 )
 
 class ChatViewModel(
-    private val chatRepository: ChatRepository = ChatRepositoryImpl(),
-    private val profileRepository: ProfileRepository = ProfileRepositoryImpl(),
-    private val authProvider: () -> FirebaseAuth? = {
-        try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
-    }
-) : ViewModel() {
+    application: Application
+) : AndroidViewModel(application) {
+
+    private val chatRepository: ChatRepository = ChatRepositoryImpl()
+    private val profileRepository: ProfileRepository = ProfileRepositoryImpl(context = application)
+    private val auth: FirebaseAuth?
+        get() = try { FirebaseAuth.getInstance() } catch (e: Exception) { null }
 
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    private val auth: FirebaseAuth?
-        get() = authProvider()
+    private val notificationManager = try { AppNotificationManager(application) } catch (e: Exception) { null }
 
     val currentUserId: String
         get() = auth?.currentUser?.uid ?: ""
@@ -70,12 +72,28 @@ class ChatViewModel(
 
         viewModelScope.launch {
             try {
+                var initialLoad = true
+                var previousMsgCount = 0
                 chatRepository.getMessages(matchId)
                     .catch { emit(emptyList()) }
                     .collect { msgs ->
                         _uiState.update {
                             it.copy(messages = msgs, isLoading = false)
                         }
+
+                        if (!initialLoad && msgs.size > previousMsgCount) {
+                            val lastMsg = msgs.lastOrNull()
+                            if (lastMsg != null && lastMsg.senderId != currentUserId && lastMsg.senderId != "me") {
+                                try {
+                                    val senderName = _uiState.value.partnerUser?.name ?: "Partner"
+                                    notificationManager?.showNewMessageNotification(senderName, lastMsg.text)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+                        initialLoad = false
+                        previousMsgCount = msgs.size
                     }
             } catch (e: Throwable) {
                 _uiState.update { it.copy(isLoading = false) }
