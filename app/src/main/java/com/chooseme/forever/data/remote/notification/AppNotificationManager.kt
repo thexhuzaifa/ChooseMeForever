@@ -29,6 +29,7 @@ class AppNotificationManager(private val context: Context) {
             ).apply {
                 description = "Notifications for new matches, likes, and chat messages."
                 enableVibration(true)
+                setShowBadge(true)
             }
             notificationManager.createNotificationChannel(channel)
         }
@@ -46,10 +47,11 @@ class AppNotificationManager(private val context: Context) {
         )
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("❤️ New Match Request!")
             .setContentText("$senderName liked your profile! Open ChooseMe to connect.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
@@ -69,10 +71,11 @@ class AppNotificationManager(private val context: Context) {
         )
 
         val notification = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle("💬 $senderName")
             .setContentText(messageText)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
