@@ -2,18 +2,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // User Profiles
+    // 1. User Profiles
     match /users/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // Likes & Swipes
+    // 2. Swipes & Likes Tracking
     match /likes/{userId}/userLikes/{targetUserId} {
       allow read, write: if request.auth != null;
     }
 
-    // Matches & Realtime Chat
+    // 3. Incoming Like Requests & Matching Algorithm
+    match /requests/{userId}/incomingLikes/{targetUserId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 4. Matches & Real-Time Chat Engine
     match /matches/{matchId} {
       allow read, write: if request.auth != null;
 
@@ -22,7 +27,7 @@ service cloud.firestore {
       }
     }
 
-    // Audio Call Signaling
+    // 5. Agora Audio Calling & Signaling
     match /calls/{callId} {
       allow read, write: if request.auth != null;
     }
